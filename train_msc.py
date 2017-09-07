@@ -17,11 +17,12 @@ import tensorflow as tf
 import numpy as np
 
 from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label
+import pdb
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
 BATCH_SIZE = 1
-DATA_DIRECTORY = '/home/VOCdevkit'
+DATA_DIRECTORY = '/home/monaj/bin/VOCdevkit/VOC2012/'
 DATA_LIST_PATH = './dataset/train.txt'
 GRAD_UPDATE_EVERY = 10
 IGNORE_LABEL = 255
@@ -32,8 +33,8 @@ NUM_CLASSES = 21
 NUM_STEPS = 20001
 POWER = 0.9
 RANDOM_SEED = 1234
-RESTORE_FROM = './deeplab_resnet.ckpt'
-SAVE_NUM_IMAGES = 1
+RESTORE_FROM = './deeplab_resnet_init.ckpt'
+SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 1000
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
@@ -183,6 +184,8 @@ def main():
     raw_prediction100 = tf.reshape(raw_output100, [-1, args.num_classes])
     raw_prediction075 = tf.reshape(raw_output075, [-1, args.num_classes])
     raw_prediction05 = tf.reshape(raw_output05, [-1, args.num_classes])
+
+    #pdb.set_trace()
     
     label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes, one_hot=False) # [batch_size, h, w]
     label_proc075 = prepare_label(label_batch, tf.stack(raw_output075.get_shape()[1:3]), num_classes=args.num_classes, one_hot=False)
@@ -229,12 +232,29 @@ def main():
                                      max_outputs=args.save_num_images) # Concatenate row-wise.
     summary_writer = tf.summary.FileWriter(args.snapshot_dir,
                                            graph=tf.get_default_graph())
-   
+
+
+    print('\n\n')
+    print('-------------------------------------------------------')
+    print('--------------- Trainable parameters ------------------')
+    print('-------------------------------------------------------')
+    total_params = 0
+    for v in tf.trainable_variables():
+        shape = v.get_shape()
+        params = 1
+        for dim in shape:
+            params *= dim.value
+        print('{:<30s}: {:<20s}\t{:<10s}'.format(v.name, str(shape), str(params)))
+        total_params += params
+    print('total_pamars = {}'.format(total_params))
+    print('-------------------------------------------------------\n\n')
+
+
     # Define loss and optimisation parameters.
     base_lr = tf.constant(args.learning_rate)
     step_ph = tf.placeholder(dtype=tf.float32, shape=())
     learning_rate = tf.scalar_mul(base_lr, tf.pow((1 - step_ph / args.num_steps), args.power))
-    
+
     opt_conv = tf.train.MomentumOptimizer(learning_rate, args.momentum)
     opt_fc_w = tf.train.MomentumOptimizer(learning_rate * 10.0, args.momentum)
     opt_fc_b = tf.train.MomentumOptimizer(learning_rate * 20.0, args.momentum)
@@ -311,6 +331,7 @@ def main():
 
         duration = time.time() - start_time
         print('step {:d} \t loss = {:.3f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
+
     coord.request_stop()
     coord.join(threads)
     
