@@ -3,3 +3,6 @@ snapshots/
 checkpoint
 *.ckpt
 .idea
+*.caffemodel
+*.prototext
+
